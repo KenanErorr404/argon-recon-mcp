@@ -4,22 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "argon-recon-mcp"
-version = "1.0.0"
-description = "Model Context Protocol (MCP) server for Continuous Attack Surface & Live CVE/KEV Reconnaissance powered by Argon Node."
+version = "1.0.1"
+description = "Localhost Model Context Protocol (MCP) server for passive domain & CVE/KEV reconnaissance."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-authors = [
-  {name = "Kenetic Security", email = "security@kenetic0x00.com"}
-]
-keywords = ["mcp", "security", "reconnaissance", "cve", "cisa-kev", "ghsa", "attack-surface"]
 dependencies = [
   "httpx>=0.27.0"
 ]
-
-[project.urls]
-Homepage = "https://argon.kenetic0x00.com"
-Documentation = "https://argon.kenetic0x00.com"
 
 [project.scripts]
 argon-recon-mcp = "argon_recon_mcp.server:main"

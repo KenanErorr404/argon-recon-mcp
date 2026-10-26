@@ -4,27 +4,18 @@ import sys
 from typing import Any, Dict
 import httpx
 
-ARGON_BASE_URL = os.environ.get("ARGON_BASE_URL", "https://argon.kenetic0x00.com").rstrip("/")
-ARGON_API_KEY = os.environ.get("ARGON_API_KEY", "").strip()
-UPGRADE_FOOTER = (
-    "\n\n---\n"
-    "⚡ Upgrade to unlimited scans & 6h automated webhook monitoring (€49/mo): https://argon.kenetic0x00.com"
-)
+ARGON_BASE_URL = os.environ.get("ARGON_BASE_URL", "http://127.0.0.1:8420").rstrip("/")
 
 TOOLS = [
     {
         "name": "scan_domain_surface",
-        "description": (
-            "Passive attack surface reconnaissance for a public domain: discovers subdomains via Certificate "
-            "Transparency (crt.sh) & TLS SANs, inspects SSL/TLS certificates, scores HTTP security headers, "
-            "and correlates detected server banners against CISA KEV & GitHub Critical Advisories."
-        ),
+        "description": "Passive attack surface reconnaissance for a public domain via local Argon node.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "domain": {
                     "type": "string",
-                    "description": "Public domain name to scan (e.g. 'cloudflare.com', 'kenetic0x00.com').",
+                    "description": "Public domain name to scan.",
                 }
             },
             "required": ["domain"],
@@ -32,16 +23,13 @@ TOOLS = [
     },
     {
         "name": "check_cve_exposure",
-        "description": (
-            "Checks live CISA Known Exploited Vulnerabilities (KEV), NIST NVD CVEs, and GitHub High/Critical "
-            "Security Advisories (GHSA) for a specific package, vendor, or CVE ID."
-        ),
+        "description": "Checks local CISA KEV, NVD CVE, and GHSA database for a package, vendor, or CVE ID.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Package name, vendor, or CVE/GHSA identifier (e.g. 'wasmtime', 'CVE-2026-115889').",
+                    "description": "Package name, vendor, or CVE/GHSA identifier.",
                 }
             },
             "required": ["query"],
@@ -51,23 +39,13 @@ TOOLS = [
 
 
 def _call_argon_scan(target: str) -> str:
-    headers: Dict[str, str] = {"Content-Type": "application/json", "User-Agent": "argon-recon-mcp/1.0.0"}
-    if ARGON_API_KEY:
-        headers["X-API-Key"] = ARGON_API_KEY
-
+    headers: Dict[str, str] = {"Content-Type": "application/json", "User-Agent": "argon-recon-mcp/1.0.1"}
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(f"{ARGON_BASE_URL}/api/scan", headers=headers, json={"target": target})
-            if resp.status_code == 429:
-                return (
-                    f"Rate limit reached (5 free scans/hour per IP): {resp.text}"
-                    f"{UPGRADE_FOOTER}"
-                )
-            data = resp.json()
-            formatted = json.dumps(data, indent=2)
-            return f"{formatted}{UPGRADE_FOOTER}"
+            return json.dumps(resp.json(), indent=2)
     except Exception as exc:
-        return f"Error querying Argon Recon Node ({ARGON_BASE_URL}): {exc}{UPGRADE_FOOTER}"
+        return f"Error querying local Argon node ({ARGON_BASE_URL}): {exc}"
 
 
 def handle_rpc_request(req: Dict[str, Any]) -> Dict[str, Any] | None:
@@ -81,7 +59,7 @@ def handle_rpc_request(req: Dict[str, Any]) -> Dict[str, Any] | None:
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "argon-recon-mcp", "version": "1.0.0"},
+                "serverInfo": {"name": "argon-recon-mcp", "version": "1.0.1"},
             },
         }
 
@@ -96,11 +74,9 @@ def handle_rpc_request(req: Dict[str, Any]) -> Dict[str, Any] | None:
         name = params.get("name")
         args = params.get("arguments", {}) or {}
         if name == "scan_domain_surface":
-            target = str(args.get("domain", "")).strip()
-            output = _call_argon_scan(target)
+            output = _call_argon_scan(str(args.get("domain", "")).strip())
         elif name == "check_cve_exposure":
-            target = str(args.get("query", "")).strip()
-            output = _call_argon_scan(target)
+            output = _call_argon_scan(str(args.get("query", "")).strip())
         else:
             return {
                 "jsonrpc": "2.0",
@@ -123,7 +99,6 @@ def handle_rpc_request(req: Dict[str, Any]) -> Dict[str, Any] | None:
 
 
 def main() -> None:
-    """Stdio JSON-RPC 2.0 loop for Model Context Protocol (MCP)."""
     for line in sys.stdin:
         line = line.strip()
         if not line:
